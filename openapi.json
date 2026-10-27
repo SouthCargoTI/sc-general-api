@@ -1,0 +1,201 @@
+
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API de Links Temporários - Microsoft Bookings",
+    "description": "API para criar links temporários para agendamentos do Microsoft Bookings e redirecionar usuários enquanto os links estiverem válidos.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Ambiente local"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sistema",
+      "description": "Verificação de funcionamento da API"
+    },
+    {
+      "name": "Links",
+      "description": "Criação e acesso a links temporários"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Sistema"],
+        "summary": "Verifica se a API está funcionando",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "API funcionando",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "API de links temporários funcionando."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/links": {
+      "post": {
+        "tags": ["Links"],
+        "summary": "Cria um link temporário",
+        "description": "Cria um link protegido por token que redireciona para uma URL autorizada do Microsoft Bookings. Requer uma chave de API.",
+        "operationId": "createTemporaryLink",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "urlOriginal",
+                  "expiracaoHoras"
+                ],
+                "properties": {
+                  "urlOriginal": {
+                    "type": "string",
+                    "format": "uri",
+                    "maxLength": 2048,
+                    "description": "URL HTTPS original do Microsoft Bookings. O domínio precisa estar autorizado no servidor.",
+                    "example": "https://outlook.office.com/book/SEU-AGENDAMENTO"
+                  },
+                  "expiracaoHoras": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 8760,
+                    "description": "Quantidade de horas até a expiração do link.",
+                    "example": 72
+                    }
+                }
+              },
+              "example": {
+                "urlOriginal": "https://outlook.office.com/book/SEU-AGENDAMENTO",
+                "expiracaoHoras": 72
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Link temporário criado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "mensagem": {
+                      "type": "string",
+                      "example": "Link temporário criado com sucesso."
+                    },
+                    "urlTemporaria": {
+                      "type": "string",
+                      "format": "uri",
+                      "example": "https://api.exemplo.com/l/TOKEN"
+                    },
+                    "dataCriacao": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "dataExpiracao": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados ausentes ou inválidos, URL não autorizada ou expiração fora do limite"
+          },
+          "401": {
+            "description": "Chave de autenticação ausente ou inválida"
+          },
+          "500": {
+            "description": "Erro interno ou autenticação não configurada no servidor"
+          }
+        }
+      }
+    },
+    "/l/{token}": {
+      "get": {
+        "tags": ["Links"],
+        "summary": "Acessa um link temporário",
+        "description": "Valida o token e redireciona para o Bookings se o link estiver ativo e não tiver expirado. Não exige chave de API.",
+        "operationId": "redirectTemporaryLink",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "description": "Token do link temporário.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirecionamento para a URL original do Bookings",
+            "headers": {
+              "Location": {
+                "description": "URL de destino",
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Link não encontrado"
+          },
+          "410": {
+            "description": "Link expirado, desativado ou com destino inválido"
+          },
+          "500": {
+            "description": "Erro interno ao validar o link"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "Chave secreta configurada na variável API_KEY do servidor. Não compartilhe essa chave."
+      }
+    }
+  }
+}
